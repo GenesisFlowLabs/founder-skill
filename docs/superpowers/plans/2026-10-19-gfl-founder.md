@@ -61,19 +61,23 @@ Owner: integrator. Files: `scripts/install.py`, `tests/test_install.py`, `tests/
 - [x] Test missing install destinations, idempotency, conflict preflight, wrong links, dry-run, check, and scoped uninstall with temporary homes.
 - [x] Implement symlink installation from the canonical checkout into Claude and Codex skill directories; support the router and all eleven specialists.
 - [x] Update fork identity and version, attribution, usage, support matrix, and upstream-update instructions.
-- [ ] Run full suite and independent review, address findings, then integrate to the canonical checkout.
-- [ ] Install, check every resolved skill/script path, and record native assistant discovery limits without launching heavyweight sessions.
+- [x] Run full suite and independent review, address findings, then integrate to the canonical checkout.
+- [x] Install, check every resolved skill/script path, and record native assistant discovery limits without launching heavyweight sessions.
 
 ## Task 5: First use and handoff
 
 Owner: integrator, with a reused worker for read-only business evidence after implementation finishes.
 
-- [ ] Use the installed router on one GFL offer decision and one Panora customer-segment decision; preserve unknown facts.
-- [ ] Keep sensitive working results outside public git; return useful recommendations in the final handoff.
-- [ ] Record test evidence, installation paths, version/commit, resource use, limitations, and next owner decisions. Verify fork destination before publishing reusable code.
+- [x] Use the installed router on one GFL offer decision and one Panora customer-segment decision; preserve unknown facts.
+- [x] Keep sensitive working results outside public git; return useful recommendations in the final handoff.
+- [x] Record test evidence, installation paths, version/commit, resource use, limitations, and next owner decisions. Verify fork destination before publishing reusable code.
 
 ## Progress
 
 Initial branch: `gfl/adapt-2026-10-19` from `fd9385b0cfe1b96bebce3898fbd506d73eff5a9d`. Baseline 29 tests passed. Use the stable canonical checkout for installation, and a separate worktree for implementation.
 
-Final preinstallation verification: 80 tests passed; git diff --check passed. Independent review is ready after correction of two functional and two minor findings. Temporary-home installation exercised all four tools through linked paths and removed its own links. Canonical integration and installation are the remaining execution steps.
+Completed 2026-10-19. The canonical main checkout passed 80 tests after fast-forward integration. Independent review is ready after correction of two functional and two minor findings. Temporary-home installation exercised all four tools with synthetic fixtures through linked paths and removed its own links.
+
+Real-home installation verified 24 owned links, all twelve skill files and shared references, and all four tool entry points in both runtimes. Repeated preflight reports zero new links. No installed link uses the implementation worktree. The installed router and offer/launch instructions were read and applied to the private GFL/Panora decision exercise. Native assistant command-menu discovery was not tested by launching a second assistant; refresh the session if needed.
+
+The private handoff contains proposed outcomes, buyer questions, unresolved terms, source evidence and explicit pass/change/stop conditions. No real buyer panel, financial data, outreach or product release was run. This task created no browser tabs, Docker containers, local model processes, MCP servers or extra agent CLI sessions. Git publishing destination was verified as main on the owned GenesisFlowLabs fork.
