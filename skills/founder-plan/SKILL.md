@@ -1,88 +1,30 @@
 ---
 name: founder-plan
-description: >-
-  Your business planner. Compiles everything the other founder skills wrote (the
-  board's verdict, the competitors, the buyer panel, pricing, the offer, the CFO's
-  numbers, marketing, brand, operations and the launch plan) into one business
-  plan with a verdict at the top that is computed from the numbers, never written
-  by hand: Profitable, Not yet (with the failing numbers) or Incomplete. Adds an
-  executive summary and a one-page version for a partner, lender or investor. Use
-  when the user says "write my business plan", "put it all together", "is it
-  profitable", "give me the plan", or at the end of the founder pack.
-argument-hint: "[--min-buy-rate 0.25]"
+description: Use when consolidating founder evidence and explicit financial projections into a decision plan or partner summary.
+argument-hint: "[absolute workspace path]"
 ---
 
 # founder-plan
 
-The last step. One document a founder can act on, or hand to a partner or a
-lender, built only from what the pack found.
+Resolve this loaded skill directory with `pwd -P`, set `SKILL_DIR` and parent `PACK_DIR`, and read `"$PACK_DIR/founder/policy.md"` plus the relevant `profiles.md` section. A plan containing finance must use an authorized local finance `RUN` on the Mac Studio, outside git.
 
-Tool in this folder:
-
-```bash
-python3 "${CLAUDE_SKILL_DIR}/compile.py" --dir founder
-```
-
-## Step 1: see what is there
+1. Inventory current artifacts and source dates. Use only necessary sections; a missing board, panel or brand is not a reason to run it. Link to existing records and label proposed versus agreed terms.
+2. Run the current compiler against this explicit workspace:
 
 ```bash
-python3 "${CLAUDE_SKILL_DIR}/compile.py" --dir founder --check
+python3 "$SKILL_DIR/compile.py" --dir "$RUN" --check
 ```
 
-prints the verdict and each check. The checks, all computed:
+The computed verdict is `Projected profitable`, `Not yet` or `Incomplete`. It evaluates explicit unit costs, operating projection and capacity where supplied. Missing/invalid financial inputs remain Incomplete. Never override or soften a failing check. The legacy `--min-buy-rate` argument is not a demand or financial gate; do not use it as one. No simulated panel is required.
 
-1. Each unit earns money before fixed costs (`founder/numbers.json`).
-2. Year 1 makes an operating profit.
-3. The break-even fits inside capacity, if a capacity was given.
-4. Enough simulated buyers buy (`founder/panel/results.json`; default bar 25%,
-   change it with `--min-buy-rate` and say why).
-
-If there are no numbers, the verdict is Incomplete: offer to run `/founder-cfo`.
-List the other missing sections with the skill that fills each. Do not fill a
-missing section yourself from guesses.
-
-## Step 2: the summary
-
-Write `founder/summary.md`, half a page, plain words:
-
-- What the business is and who it is for, in two sentences.
-- The verdict and the three numbers behind it (margin, break-even, year 1).
-- What the buyer panel and the board agreed on, and where they disagreed.
-- The biggest risk and what will be done about it.
-- What the founder needs to start (cash from the CFO, the first test from launch).
-- The one thing to do this week.
-
-If the verdict is Not yet, the summary leads with what has to change and which skill
-changes it. Never soften a failing check.
-
-## Step 3: compile
+3. Write `summary.md`: decision, verified facts, financial verdict and key calculated numbers, real buyer evidence, uncertainties and one next action with owner. Clearly separate actual results, assumptions, projections and synthetic findings. Missing demand evidence remains missing even when economics project positive.
+4. If including a simulated run, explicitly select its unchanged pitch/profile/settings, identify its path/date/seed and keep its results labeled synthetic under `panel/results.md` and `results.json`. Do not merge different runs. Exclude irrelevant or stale artifacts.
+5. Compile:
 
 ```bash
-python3 "${CLAUDE_SKILL_DIR}/compile.py" --dir founder
+python3 "$SKILL_DIR/compile.py" --dir "$RUN"
 ```
 
-writes `founder/business-plan.md`: title, the verdict and its checks, the key numbers
-table, the idea, then every section the pack produced (summary, board, competition,
-panel, pricing, offer, numbers, marketing, brand, operations, launch), and what is
-not done yet.
+Read the generated `business-plan.md` to verify included sections, units, names, dates and wording. For a client-month projection disclose `days_per_month: 1` and monthly interpretation of daily-named fields. The tool does not model cohorts, churn or retention.
 
-## Step 4: the one-pager
-
-Write `founder/one-pager.md` for someone deciding in two minutes: the problem, the
-customer, the offer and price, the numbers table, the evidence (panel result,
-competitor gap, any real test), what the money is for, and the ask. Same numbers as
-the plan, word for word.
-
-## Rules
-
-- The verdict comes from `compile.py`. Never write Profitable by hand, and never
-  round a failing number into a passing one.
-- Say once, clearly: the panel is simulated buyers and the numbers are projections;
-  real customers and real quotes confirm them. Not financial, legal or tax advice.
-- If the user wants a PDF or a deck, offer to export the plan, but keep the
-  markdown as the source of truth.
-
-## Output
-
-`founder/summary.md`, `founder/business-plan.md`, `founder/one-pager.md`. Then give
-the user the verdict in one line and the one thing to do this week.
+Write an optional `one-pager.md` only for an identified audience and approved disclosure scope. Preserve calculated figures and label unagreed asks. Keep finance private; prepare a redacted business summary when external use is requested, and confirm uncovered sharing separately. Return the computed verdict, strongest evidence limit and the one next decision, never a claim that projections prove profitability or demand.

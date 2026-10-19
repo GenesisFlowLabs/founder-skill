@@ -1,80 +1,17 @@
 ---
 name: founder-marketing
-description: >-
-  Your marketing director. Turns the buyer panel and the competitor map into
-  positioning, the channels the target customer actually uses, a 30-day launch
-  campaign with dated posts and ads, the first ten hooks, a budget split and the
-  numbers to watch. Every message answers an objection real or simulated buyers
-  raised. Use when the user says "how do I market this", "marketing plan", "launch
-  campaign", "how do I get customers", "where do I advertise", "write my ads", or
-  "positioning".
-argument-hint: "[budget]"
+description: Use when choosing positioning, acquisition channels or a bounded campaign from current customer evidence and an agreed offer.
+argument-hint: "[audience or campaign decision]"
 ---
 
 # founder-marketing
 
-A business no one hears about does not exist. This skill plans how the first
-customers hear about it, using what the rest of the pack already learned instead
-of a generic playbook.
+Resolve this loaded skill directory with `pwd -P`, set `SKILL_DIR` and parent `PACK_DIR`, and read `"$PACK_DIR/founder/policy.md"` plus the relevant `profiles.md` section. Use authorized `RUN`; financial records stay in the local finance workspace.
 
-## Step 1: read the evidence
+1. Read actual buyer interviews, purchase/usage evidence, current offer, competitor research and existing campaign records. Separate user, champion, budget owner and procurement reviewer. Select an audience from observed need and reachability; simulated buy rates cannot rank real segments.
+2. Draft one positioning line: for whom, which workflow/outcome, why it matters and what substantiates the difference. Preserve product names and current capability boundaries. If evidence is thin, label this a positioning hypothesis.
+3. Select the smallest useful channel experiment using evidence of where this audience pays attention. B2B options may include existing relationships, partner referrals, targeted discovery, relevant communities and search. Research current platform costs/rules if reporting them. Do not invent acquisition costs, a budget or a channel's performance.
+4. Draft messages addressing sourced objections and the actual outcome. Identify the source of each claim. Simulated comments may guide wording but are never testimonials. Do not invent customer logos, savings, reviews, follower counts or promised results.
+5. Define the hypothesis, target audience, proposed dates, owner, allowed spend, measurement and decision condition. Use actual acquisition/delivery economics only when available; no lifetime value or CAC allowance derived from panel purchases. If budget is unknown, propose an uncosted draft or a no-spend research step.
 
-- `founder/panel/results.md`: who buys, who doesn't, and why. The segments with the
-  highest buy rate are the first audience. The top objections are what the
-  marketing must answer.
-- `founder/competitors.md`: how competitors position themselves (so you do not
-  sound like them) and the gap.
-- `founder/offer.md` and `founder/pricing.md`: what is being sold, at what price.
-- `founder/numbers.json`: what a customer is worth, which caps what you can spend to
-  win one.
-
-If none of these exist, say what is missing and offer to run `/founder-consumer
---quick` first. Do not invent an audience.
-
-## Step 2: positioning
-
-One line, then the reasons:
-
-```
-For <the segment that buys most>, who <their problem in their words>,
-<business> is the <category> that <the gap>, unlike <the nearest alternative>.
-```
-
-Give three versions, recommend one, and say which panel evidence supports it.
-
-## Step 3: channels
-
-List where the first audience actually spends attention, specific to the business
-type and place: foot traffic and window signage, Google Maps, Instagram and TikTok,
-local creators, neighbourhood groups, partnerships with nearby businesses, email,
-paid search, paid social. For each: why it fits this buyer, rough cost, and how you
-will know it worked. Pick two or three to start; say what you are not doing and why.
-
-## Step 4: the 30-day campaign
-
-`founder/marketing.md` gets a dated calendar from launch minus 14 days to launch
-plus 16: what goes out each day, on which channel, with the message. Include:
-
-- **Ten hooks**, each answering one panel objection or using one buyer reason,
-  written for the format (a 3-second opening line for video, a headline for an ad,
-  a sign in the window).
-- The launch-week offer from `founder/pricing.md` and when it ends.
-- What to post when there is nothing new to say (behind the scenes, the making of).
-
-## Step 5: budget and numbers
-
-- The budget split across the chosen channels.
-- The most you can pay to win a customer: from the CFO's contribution per unit and
-  the panel's purchases per buyer, show the sum.
-- The three numbers to watch weekly and the level that means "change something".
-
-## Rules
-
-- No fake reviews, follower counts, testimonials, before/afters or "as seen on".
-- Panel quotes are research; never use them as customer quotes in ads.
-- Disclose paid partnerships. Follow the advertising rules for claims in the user's
-  market (health and earnings claims especially). Not legal advice.
-
-## Output
-
-`founder/marketing.md`. Next: `/founder-brand`, then `/founder-launch`.
+Return positioning, the small experiment, draft assets, evidence limits and one next action in the requested format; use `marketing.md` only if a separate artifact is needed. Use a content calendar only when requested or justified, with proposed dates clearly labeled. All email remains draft-only, with contact-card verification. Publishing, outreach, ads and spending require authorization for that specific action; preparing this plan does not grant it.

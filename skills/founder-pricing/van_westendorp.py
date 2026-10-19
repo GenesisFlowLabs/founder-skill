@@ -6,9 +6,9 @@ cheap to trust, a bargain, getting expensive, and too expensive to buy. Plotted
 together, those four answers give you an acceptable price range and the price
 that leaves the fewest people unhappy.
 
-    python3 van_westendorp.py founder/panel/answers
-    python3 van_westendorp.py prices.csv --out founder/pricing-curve.md
-    python3 van_westendorp.py founder/panel/answers --json
+    python3 van_westendorp.py founder/panel/answers --provenance simulated
+    python3 van_westendorp.py prices.csv --provenance real-survey --out founder/pricing-curve.md
+    python3 van_westendorp.py founder/panel/answers --provenance simulated --json
 
 Input is either the panel's answers folder (one JSON per buyer, written by
 founder-consumer) or a CSV with the columns too_cheap, cheap, expensive,
@@ -23,18 +23,22 @@ The four points it reports:
     OPP  optimal price point            as many say "too cheap" as "too expensive"
     IPP  indifference price point       as many say "a bargain" as "expensive"
 
-PMC to PME is the acceptable range. These are answers from simulated buyers:
-use the range to choose what to TEST, then test it with real ones.
+PMC to PME is a stated acceptable range, not purchase evidence. Select
+--provenance simulated, real-survey, or unknown (the conservative default).
+Simulated answers only suggest what to test with actual customers.
 """
 
 import argparse
 import csv
 import glob
 import json
+import math
 import os
 import sys
 
 KEYS = ("too_cheap", "cheap", "expensive", "too_expensive")
+PROVENANCES = ("simulated", "real-survey", "unknown")
+MAX_GRID = 10000
 
 
 class PricingError(Exception):
@@ -42,11 +46,22 @@ class PricingError(Exception):
 
 
 def _f(v):
+    if isinstance(v, bool):
+        return None
     try:
         x = float(str(v).replace("$", "").replace(",", "").strip())
     except (TypeError, ValueError):
         return None
-    return x if x > 0 else None
+    return x if math.isfinite(x) and x > 0 else None
+
+
+def _positive(v):
+    if isinstance(v, bool) or not isinstance(v, (int, float)):
+        return False
+    try:
+        return math.isfinite(v) and v > 0
+    except OverflowError:
+        return False
 
 
 def read(path):
@@ -60,7 +75,7 @@ def read(path):
             except (json.JSONDecodeError, UnicodeDecodeError):
                 raw.append(None)
                 continue
-            raw.append(tuple(_f(a.get("price_" + k)) for k in KEYS))
+            raw.append(tuple(_f(a.get("price_" + k)) for k in KEYS) if isinstance(a, dict) else None)
     elif path.endswith(".csv"):
         with open(path, newline="", encoding="utf-8") as fh:
             for r in csv.DictReader(fh):
@@ -99,15 +114,34 @@ def cross(grid, falling, rising):
 
 
 def analyse(rows, step=None):
+    if not isinstance(rows, (list, tuple)):
+        raise PricingError("answers must be a list of four-price rows")
+    for row in rows:
+        if (not isinstance(row, (list, tuple)) or len(row) != 4
+                or not all(_positive(v) for v in row)
+                or not row[0] <= row[1] <= row[2] <= row[3]):
+            raise PricingError("each answer needs four finite positive numbers in ascending order")
     if len(rows) < 5:
         raise PricingError("need at least 5 complete answers (got %d)" % len(rows))
     lo = min(r[0] for r in rows)
     hi = max(r[3] for r in rows)
-    step = step or max(0.01, round((hi - lo) / 400, 2))
-    grid, p = [], lo
-    while p <= hi + 1e-9:
-        grid.append(round(p, 4))
-        p += step
+    if step is None:
+        step = max(0.01, round((hi - lo) / 400, 2))
+    if not _positive(step):
+        raise PricingError("step must be a finite positive number")
+    intervals = (hi - lo) / step
+    if not math.isfinite(intervals):
+        raise PricingError("step would exceed %d price grid points; use a larger step" % MAX_GRID)
+    # Normalize floating error at an integral number of intervals, then count
+    # the exact upper endpoint before allocating. Nonintegral spans need a
+    # final shorter interval; omitting it can hide a crossing at the top price.
+    nearest = round(intervals)
+    if math.isclose(intervals, nearest, rel_tol=0.0, abs_tol=1e-9):
+        intervals = nearest
+    segments = max(1, math.ceil(intervals)) if hi > lo else 0
+    if segments + 1 > MAX_GRID:
+        raise PricingError("step would exceed %d price grid points; use a larger step" % MAX_GRID)
+    grid = [lo + i * step for i in range(segments)] + [hi]
     tc, ch, ex, te = curves(rows, grid)
     not_cheap = [1 - v for v in ch]
     not_exp = [1 - v for v in ex]
@@ -121,12 +155,22 @@ def analyse(rows, step=None):
             "median": {k: sorted(r[i] for r in rows)[len(rows) // 2] for i, k in enumerate(KEYS)}}
 
 
-def report(res, dropped, price=None):
+def report(res, dropped, price=None, provenance="unknown"):
+    if provenance not in PROVENANCES:
+        raise PricingError("provenance must be simulated, real-survey, or unknown")
+    if price is not None and not _positive(price):
+        raise PricingError("current price must be a finite positive number")
     m = lambda v: "n/a" if v is None else "$%.2f" % v
     p = res["points"]
+    context = {
+        "simulated": "Simulated buyers: use this to pick what to test with actual customers. This does not validate demand.",
+        "real-survey": "Real-survey input, as declared by the operator. Stated price preferences do not prove purchases or demand.",
+        "unknown": "Source provenance is unverified. Confirm how answers were collected before using the range.",
+    }
     L = ["# Price sensitivity", "",
-         "%d complete answers%s. Simulated buyers: use this to pick what to test, not as the final word." % (
-             res["n"], (", %d dropped (incomplete or out of order)" % dropped) if dropped else ""), "",
+         "%d complete answers%s. Provenance: %s. %s" % (
+             res["n"], (", %d dropped (invalid, incomplete or out of order)" % dropped) if dropped else "",
+             provenance, context[provenance]), "",
          "| point | price | what it means |", "| --- | ---: | --- |",
          "| PMC | %s | below this, too many think it is too cheap to be good |" % m(p["PMC"]),
          "| OPP | %s | as many say too cheap as too expensive: the least resistance |" % m(p["OPP"]),
@@ -148,17 +192,22 @@ def main(argv=None):
     ap.add_argument("--price", type=float, help="your current price, to place it on the range")
     ap.add_argument("--out", help="write the report here (markdown)")
     ap.add_argument("--json", action="store_true")
+    ap.add_argument("--provenance", choices=PROVENANCES, default="unknown",
+                    help="how answers were collected; defaults to unverified unknown")
     a = ap.parse_args(argv)
     try:
+        if a.price is not None and not _positive(a.price):
+            raise PricingError("current price must be a finite positive number")
         rows, dropped = read(a.source)
         res = analyse(rows)
     except (PricingError, FileNotFoundError) as e:
         print("error: %s" % e, file=sys.stderr)
         return 2
+    res["provenance"] = a.provenance
     if a.json:
         print(json.dumps(dict(res, dropped=dropped), indent=1))
         return 0
-    text = report(res, dropped, a.price)
+    text = report(res, dropped, a.price, provenance=a.provenance)
     if a.out:
         with open(a.out, "w", encoding="utf-8") as fh:
             fh.write(text)

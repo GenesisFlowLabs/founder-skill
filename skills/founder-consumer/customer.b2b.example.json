@@ -1,0 +1,35 @@
+{
+  "type": "b2b",
+  "business": "Synthetic example: office workflow software",
+  "target": "Small service organizations evaluating an administrative workflow change",
+  "segments": [
+    {
+      "name": "Owner-led office",
+      "share": 0.6,
+      "roles": ["Owner", "Office manager"],
+      "organization_budget": [150, 600],
+      "budget_period": "monthly",
+      "organization_size": [3, 15],
+      "authority": "The owner approves recurring purchases after the office manager evaluates them",
+      "workflow_constraints": ["Keep existing scheduling", "Avoid duplicate data entry"],
+      "switching_constraints": ["Export existing records before switching", "Train staff during a quiet week"]
+    },
+    {
+      "name": "Growing operations team",
+      "share": 0.4,
+      "roles": ["Operations manager", "Finance lead"],
+      "organization_budget": [600, 1500],
+      "budget_period": "monthly",
+      "organization_size": [16, 60],
+      "authority": "The operations manager recommends; finance approves after reviewing total cost",
+      "workflow_constraints": ["Support existing staff permissions", "Preserve reporting exports"],
+      "switching_constraints": ["Review the current contract", "Pilot with one team before broader adoption"]
+    }
+  ],
+  "behaviours": [
+    {"name": "Cautious evaluator", "share": 0.7, "how": "Asks for a bounded pilot and evidence of workflow fit."},
+    {"name": "Cost-focused reviewer", "share": 0.3, "how": "Checks total recurring cost and switching effort."}
+  ],
+  "objections": ["Migration may interrupt daily work", "Another subscription needs approval", "Existing tools may be sufficient"],
+  "habits": ["Weekly administrative review", "Purchasing decisions wait for the monthly budget meeting"]
+}

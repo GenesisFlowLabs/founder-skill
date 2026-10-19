@@ -9,7 +9,7 @@
     {"label": "Card fees", "cost": 0.20}
   ],
   "fixed_monthly": [
-    {"label": "Labour", "cost": 15500},
+    {"label": "Labor", "cost": 15500},
     {"label": "Rent + utilities", "cost": 11040}
   ],
   "startup": [

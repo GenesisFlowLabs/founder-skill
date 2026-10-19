@@ -1,3 +1,5 @@
+import contextlib
+import io
 import json
 import os
 import shutil
@@ -39,18 +41,88 @@ class Compile(unittest.TestCase):
         self.numbers()
         self.panel(40)
         v, text = plan.compile_plan(self.d)
-        self.assertEqual(v, "Profitable")
+        self.assertEqual(v, "Projected profitable")
         self.assertTrue(text.startswith("# Moss Matcha Bar · Business plan"))
         self.assertIn("| Profit margin at plan | 38% per cup |", text)
         self.assertIn("40 buy · 60 pass", text)
         self.assertIn("- The buyer panel: run /founder-consumer", text.replace("## Not done yet", ""))
 
-    def test_a_weak_panel_means_not_yet(self):
+    def test_a_weak_panel_is_separate_from_the_financial_projection(self):
         self.numbers()
         self.panel(12)
         v, text = plan.compile_plan(self.d)
-        self.assertEqual(v, "Not yet")
-        self.assertIn("✗ 12 of 100 simulated buyers buy", text)
+        self.assertEqual(v, "Projected profitable")
+        self.assertIn("12 of 100", text)
+        self.assertIn("does not validate demand", text)
+        self.assertNotIn("✗ 12", text)
+        self.assertFalse(any("simulated" in message for _, message in plan.verdict(self.d)[1]))
+
+    def test_panel_threshold_does_not_change_financial_verdict(self):
+        self.numbers()
+        self.panel(0)
+        self.assertEqual(plan.verdict(self.d, min_buy_rate=1)[0], "Projected profitable")
+        self.numbers(price=3)
+        self.panel(100)
+        self.assertEqual(plan.verdict(self.d, min_buy_rate=0)[0], "Not yet")
+
+    def test_missing_or_invalid_numbers_are_incomplete_with_diagnostic(self):
+        invalid = [None, [], {"price": 10, "plan_per_day": 1},
+                   {"price": 10, "plan_per_day": 1, "variable": [],
+                    "fixed_monthly": [], "startup": [], "days_per_month": 0}]
+        for value in invalid:
+            with self.subTest(value=value):
+                with open(os.path.join(self.d, "numbers.json"), "w") as fh:
+                    json.dump(value, fh)
+                v, text = plan.compile_plan(self.d)
+                self.assertEqual(v, "Incomplete")
+                self.assertIn("numbers.json", text)
+                self.assertNotIn("**Verdict: Projected profitable**", text)
+
+    def test_malformed_json_is_incomplete(self):
+        with open(os.path.join(self.d, "numbers.json"), "w") as fh:
+            fh.write("{")
+        v, text = plan.compile_plan(self.d)
+        self.assertEqual(v, "Incomplete")
+        self.assertIn("numbers.json", text)
+
+    def test_malformed_panel_cannot_break_a_financial_report(self):
+        self.numbers()
+        os.makedirs(os.path.join(self.d, "panel"))
+        for value in ("{", "null", "[]", '{"buy_rate": "yes"}',
+                      '{"buys": 2, "passes": 1, "answered": 3, "buy_rate": 5}'):
+            with self.subTest(value=value):
+                with open(os.path.join(self.d, "panel", "results.json"), "w") as fh:
+                    fh.write(value)
+                v, text = plan.compile_plan(self.d)
+                self.assertEqual(v, "Projected profitable")
+                self.assertIn("panel/results.json", text)
+                self.assertIn("unavailable", text.lower())
+
+    def test_projected_volume_above_capacity_cannot_pass(self):
+        self.numbers(capacity_per_day=300)
+        self.assertEqual(plan.verdict(self.d)[0], "Not yet")
+        self.numbers(ramp_per_day=[601] + [290] * 11)
+        self.assertEqual(plan.verdict(self.d)[0], "Not yet")
+
+    def test_zero_plan_margin_renders_without_crashing(self):
+        self.numbers(plan_per_day=0)
+        _, text = plan.compile_plan(self.d)
+        self.assertIn("undefined", text.lower())
+
+    def test_check_exit_code_matches_projected_verdict(self):
+        self.numbers()
+        self.panel(0)
+        stdout = io.StringIO()
+        with contextlib.redirect_stdout(stdout):
+            code = plan.main(["--dir", self.d, "--check"])
+        self.assertEqual(code, 0)
+        self.assertIn("Projected profitable", stdout.getvalue())
+        self.numbers(variable=None)
+        stdout = io.StringIO()
+        with contextlib.redirect_stdout(stdout):
+            code = plan.main(["--dir", self.d, "--check"])
+        self.assertEqual(code, 1)
+        self.assertIn("Incomplete", stdout.getvalue())
 
     def test_losing_money_means_not_yet(self):
         self.numbers(price=3.00)

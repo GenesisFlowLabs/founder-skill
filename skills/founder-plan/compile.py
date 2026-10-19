@@ -5,19 +5,22 @@ Reads everything the other ten skills wrote into founder/ and assembles one
 document, founder/business-plan.md, with a verdict at the top. The verdict is
 computed from the numbers, never written by hand:
 
-    Profitable   every check that has data passes
+    Projected profitable   the supplied financial projection passes every check
     Not yet      at least one check fails (each failure is listed with its number)
-    Incomplete   there are no numbers yet (run founder-cfo first)
+    Incomplete   required financial inputs are missing or invalid
 
 The checks:
     1. each unit earns money before fixed costs        (founder/numbers.json)
     2. year 1 makes an operating profit                 (founder/numbers.json)
     3. break-even fits inside capacity, if capacity is given
-    4. enough of the buyer panel buys                   (founder/panel/results.json, --min-buy-rate, default 25%)
+    4. planned and month-by-month volume fit inside capacity, if given
+
+Buyer panel results are reported separately. Simulations do not validate demand
+or affect the financial verdict. --min-buy-rate is retained as a deprecated no-op.
 
     python3 compile.py                      # reads ./founder, writes ./founder/business-plan.md
     python3 compile.py --dir path/to/founder --min-buy-rate 0.3
-    python3 compile.py --check              # print the verdict and exit 0 (Profitable) or 1
+    python3 compile.py --check              # print the verdict and exit 0 (Projected profitable) or 1
 """
 
 import argparse
@@ -67,36 +70,69 @@ def _strip_h1(text):
     return "\n".join(("#" + l) if l.startswith("#") else l for l in lines).strip()
 
 
+def _panel(d):
+    raw = _read(os.path.join(d, "panel", "results.json"))
+    if raw is None:
+        return None
+    try:
+        panel = json.loads(raw)
+        if not isinstance(panel, dict):
+            raise ValueError("expected an object")
+        for key in ("buys", "passes", "answered"):
+            value = panel.get(key)
+            if isinstance(value, bool) or not isinstance(value, int) or value < 0:
+                raise ValueError("%s must be a nonnegative integer" % key)
+        rate = panel.get("buy_rate")
+        if isinstance(rate, bool) or not isinstance(rate, (int, float)) or not 0 <= rate <= 1:
+            raise ValueError("buy_rate must be a finite fraction between zero and one")
+        if panel["buys"] + panel["passes"] != panel["answered"]:
+            raise ValueError("buyer counts do not add up")
+        expected = panel["buys"] / panel["answered"] if panel["answered"] else 0
+        if not math.isclose(rate, expected, abs_tol=1e-9):
+            raise ValueError("buy_rate does not match the buyer counts")
+        return panel
+    except (ValueError, OverflowError) as exc:
+        return {"error": "panel/results.json unavailable: %s" % exc}
+
+
 def verdict(d, min_buy_rate=0.25):
-    """Return (verdict, checks, numbers, panel). checks = [(ok, text)]."""
+    """Return (verdict, financial_checks, numbers, panel).
+
+    min_buy_rate is a deprecated compatibility parameter and has no effect.
+    Invalid panel data returns a panel dict with an error diagnostic.
+    """
     checks = []
-    numbers = panel = None
+    numbers = None
     raw = _read(os.path.join(d, "numbers.json"))
     if raw:
         ue = _load_unit_economics()
-        numbers = ue.analyse(json.loads(raw))
+        try:
+            numbers = ue.analyse(json.loads(raw))
+        except (json.JSONDecodeError, ue.NumbersError) as exc:
+            checks.append((False, "numbers.json is incomplete or invalid: %s" % exc))
+    else:
+        checks.append((False, "numbers.json is missing or empty."))
+    if numbers is not None:
         u = numbers["unit"]
         c = numbers["contribution"]
-        checks.append((c > 0, "Each %s earns $%.2f before fixed costs (%.0f%% contribution)." % (u, c, numbers["contribution_pct"] * 100)
-                       if c > 0 else "Each %s LOSES $%.2f before fixed costs." % (u, -c)))
+        checks.append((c > 0, "Projected contribution per %s: $%.2f before fixed costs (%.0f%%)." %
+                       (u, c, numbers["contribution_pct"] * 100)))
         y = numbers["year1_profit"]
-        checks.append((y > 0, "Year 1 operating profit: $%s." % "{:,.0f}".format(y) if y > 0
-                       else "Year 1 operating LOSS: $%s." % "{:,.0f}".format(-y)))
+        checks.append((y > 0, "Projected year 1 operating %s: $%s." %
+                       ("profit" if y > 0 else "loss", "{:,.0f}".format(abs(y)))))
         be, cap = numbers["breakeven_per_day"], numbers["capacity_per_day"]
         if cap is not None:
-            fits = not math.isinf(be) and be <= float(cap)
+            fits = not math.isinf(be) and be <= cap
             checks.append((fits, "Break-even is %s %ss a day against a capacity of %s." % (
                 "never reached" if math.isinf(be) else "{:,.0f}".format(math.ceil(be)), u, cap)))
-    raw = _read(os.path.join(d, "panel", "results.json"))
-    if raw:
-        panel = json.loads(raw)
-        r = panel["buy_rate"]
-        checks.append((r >= min_buy_rate, "%d of %d simulated buyers buy (%.0f%%, the bar is %.0f%%)." % (
-            panel["buys"], panel["answered"], r * 100, min_buy_rate * 100)))
+            peak = max([numbers["plan_per_day"]] + [month["per_day"] for month in numbers["months"]])
+            checks.append((peak <= cap, "Peak projected volume is %s %ss a day against a capacity of %s." %
+                           ("{:,.0f}".format(peak), u, cap)))
+    panel = _panel(d)
     if numbers is None:
         v = "Incomplete"
     elif all(ok for ok, _ in checks):
-        v = "Profitable"
+        v = "Projected profitable"
     else:
         v = "Not yet"
     return v, checks, numbers, panel
@@ -116,21 +152,30 @@ def compile_plan(d, min_buy_rate=0.25):
     for ok, text in checks:
         L.append("- %s %s" % ("✓" if ok else "✗", text))
     if v == "Incomplete":
-        L.append("- No numbers yet. Run /founder-cfo, then compile again.")
+        L.append("- Complete and verify the inputs, run /founder-cfo, then compile again.")
     L.append("")
     if numbers:
         be = numbers["breakeven_per_day"]
+        margin = numbers["margin_at_plan"]
+        margin_text = "undefined (no planned sales)" if margin is None else "%.0f%% per %s" % (margin * 100, numbers["unit"])
         L += ["| key number | |", "| --- | ---: |",
               "| Price | $%.2f a %s |" % (numbers["price"], numbers["unit"]),
-              "| Profit margin at plan | %.0f%% per %s |" % (numbers["margin_at_plan"] * 100, numbers["unit"]),
+              "| Profit margin at plan | %s |" % margin_text,
               "| Break-even | %s %ss a day |" % ("never" if math.isinf(be) else "{:,.0f}".format(math.ceil(be)), numbers["unit"]),
               "| Year 1 operating profit | $%s |" % "{:,.0f}".format(numbers["year1_profit"]),
               "| Startup spend | $%s |" % "{:,.0f}".format(numbers["startup"]),
               "| Cash needed before it pays for itself | $%s |" % "{:,.0f}".format(numbers["cash_needed"]),
               "| Startup money earned back | %s |" % ("month %d" % numbers["payback_month"] if numbers["payback_month"] else "not in year 1")]
-        if panel:
-            L.append("| Buyer panel | %d buy · %d pass |" % (panel["buys"], panel["passes"]))
         L.append("")
+    if panel is not None:
+        L += ["## Simulated buyer exercise", ""]
+        if "error" in panel:
+            L.append(panel["error"])
+        else:
+            L.append("%d of %d simulated buyers buy (%.0f%%): %d buy · %d pass." %
+                     (panel["buys"], panel["answered"], panel["buy_rate"] * 100,
+                      panel["buys"], panel["passes"]))
+        L += ["", "This simulation does not validate demand and does not affect the financial verdict.", ""]
     if idea:
         L += ["## The idea", "", _strip_h1(idea), ""]
     missing = []
@@ -153,8 +198,8 @@ def compile_plan(d, min_buy_rate=0.25):
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     ap.add_argument("--dir", default="founder")
-    ap.add_argument("--min-buy-rate", type=float, default=0.25)
-    ap.add_argument("--check", action="store_true", help="print the verdict only; exit 0 if Profitable")
+    ap.add_argument("--min-buy-rate", type=float, default=0.25, help="deprecated compatibility option; no effect on the verdict")
+    ap.add_argument("--check", action="store_true", help="print the verdict only; exit 0 if Projected profitable")
     ap.add_argument("--out", help="default: <dir>/business-plan.md")
     a = ap.parse_args(argv)
     if not os.path.isdir(a.dir):
@@ -166,7 +211,7 @@ def main(argv=None):
         print("Verdict: %s" % v)
         for ok, t in checks:
             print("  %s %s" % ("✓" if ok else "✗", t))
-        return 0 if v == "Profitable" else 1
+        return 0 if v == "Projected profitable" else 1
     out = a.out or os.path.join(a.dir, "business-plan.md")
     with open(out, "w", encoding="utf-8") as fh:
         fh.write(text)

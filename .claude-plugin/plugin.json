@@ -1,21 +1,20 @@
 {
-  "name": "founder-skill",
-  "description": "Eleven free Claude skills that test a business before you launch it: a board trained on Hormozi, Thiel and Jobs, a marketing director, a CFO, and a consumer panel of 100 buyer agents. Free, MIT.",
-  "version": "1.0.0",
+  "name": "gfl-founder",
+  "description": "Evidence-led founder decisions for services and B2B software. One entry point, eleven specialist skills, bounded simulations, and explicit financial projections.",
+  "version": "1.1.0",
   "author": {
-    "name": "Jake Schincariol",
-    "url": "https://opusjake.ai"
+    "name": "Genesis Flow Labs",
+    "url": "https://github.com/GenesisFlowLabs"
   },
-  "homepage": "https://github.com/Jakeschincariol/founder-skill",
-  "repository": "https://github.com/Jakeschincariol/founder-skill",
+  "homepage": "https://github.com/GenesisFlowLabs/founder-skill",
+  "repository": "https://github.com/GenesisFlowLabs/founder-skill",
   "license": "MIT",
   "keywords": [
+    "business-strategy",
     "claude-code",
-    "claude-skills",
-    "startup",
-    "business-plan",
-    "unit-economics",
-    "market-validation",
-    "subagents"
+    "codex",
+    "skills",
+    "b2b",
+    "unit-economics"
   ]
 }

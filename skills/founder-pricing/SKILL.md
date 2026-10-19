@@ -1,85 +1,35 @@
 ---
 name: founder-pricing
-description: >-
-  Finds the price buyers will actually pay. Reads the consumer panel's four price
-  answers per buyer into a Van Westendorp price-sensitivity range (too cheap, a
-  bargain, getting expensive, too expensive), sets it against what competitors
-  really charge and against the CFO's margin, and recommends a price, a price
-  ladder (good / better / best) and an opening offer to test. Use when the user
-  says "how much should I charge", "price this", "is $X too expensive", "pricing
-  strategy", "what price", or after the consumer panel.
-argument-hint: "[current price]"
+description: Use when setting an outcome price, comparing fixed packages or testing price sensitivity against sourced costs and real purchasing evidence.
+argument-hint: "[offer or candidate price]"
 ---
 
 # founder-pricing
 
-Price is the fastest lever on the margin and the one founders guess most. This
-skill sets it from three things you can check: what buyers said, what competitors
-charge, and what the business needs to earn.
+Resolve this loaded skill directory with `pwd -P`, set `SKILL_DIR` and parent `PACK_DIR`, and read `"$PACK_DIR/founder/policy.md"` plus the relevant `profiles.md` section. Use authorized `RUN`; keep costs/financial calculations in the local finance workspace.
 
-Tool in this folder:
-
-```bash
-python3 "${CLAUDE_SKILL_DIR}/van_westendorp.py" founder/panel/answers --price 6.50 --out founder/pricing-curve.md
-```
-
-## Step 1: what buyers said
-
-If `/founder-consumer` ran, every buyer answered four price questions. Run the
-tool on `founder/panel/answers` (or a CSV with the columns `too_cheap, cheap,
-expensive, too_expensive` from real surveys, which beat simulated answers every
-time). It reports:
-
-| point | meaning |
-| --- | --- |
-| PMC | below this, too many think it is too cheap to be good |
-| OPP | the price with the least resistance either way |
-| IPP | where as many call it a bargain as call it expensive |
-| PME | above this, too many will not buy at all |
-
-PMC to PME is the acceptable range. If the panel has not run, say so and offer to
-run `/founder-consumer --quick` first. Do not invent a range.
-
-## Step 2: what competitors charge
-
-From `founder/competitors.md` (or look them up now, from their own public price
-pages, with links): the price of the nearest substitutes for the same job. Note
-what each price includes, so you compare like with like. A matcha latte is
-compared with other matcha lattes and with the coffee it replaces, not with a tea
-bag.
-
-## Step 3: what the business needs
-
-From `founder/numbers.json`: the variable cost per unit and the break-even. Run the
-CFO's tool at two or three candidate prices to see the margin and break-even at
-each:
+1. Define the result, included scope, acceptance condition, buyer/budget owner, price unit and term. Preserve unresolved price decisions. Price outcomes or a fixed scoping result, never hours.
+2. Prefer actual price conversations, comparable paid work, quotes and procurement evidence. Compare sourced public alternatives with matching setup/support/contract terms. Quote-only pricing stays unknown.
+3. Price-sensitivity analysis is optional. Use actual survey CSV columns `too_cheap,cheap,expensive,too_expensive` when available:
 
 ```bash
-python3 "${CLAUDE_SKILL_DIR}/../founder-cfo/unit_economics.py" founder/numbers.json --price 7.00
+python3 "$SKILL_DIR/van_westendorp.py" "$SURVEY_CSV" --provenance real-survey --out "$RUN/pricing-curve.md"
 ```
 
-## Step 4: decide
+For a selected synthetic run's answers, set `PANEL_RUN` explicitly and label its provenance:
 
-Write `founder/pricing.md`:
+```bash
+python3 "$SKILL_DIR/van_westendorp.py" "$PANEL_RUN/answers" --provenance simulated --out "$RUN/pricing-curve.md"
+```
 
-1. **The price**, and why: where it sits in the acceptable range, against the
-   competitors, and the margin it gives (from the tool, not a guess).
-2. **The ladder**, if the business can have one: a good / better / best (size,
-   bundle, subscription, membership) with a reason to step up each rung.
-3. **The opening offer**: an intro price or bonus for launch that does not train
-   buyers to wait for discounts, with an end date.
-4. **What to test with real buyers**: two prices inside the range and how to test
-   them (two landing pages, a pre-sale at each, A/B on the menu board).
-5. The panel's verbatim price objections (top three), so marketing can answer them.
+Report the source, sample, question wording, units and limitations. A simulated range only suggests questions or candidate tests. It is not willingness-to-pay evidence. A real survey also does not guarantee purchases. Do not require a panel or fabricate a range when responses are absent.
 
-## Rules
+4. Compare justified candidate prices against current explicit costs using:
 
-- Price answers from simulated buyers pick what to test. They are not proof.
-- Never price below variable cost to "buy" customers without saying so, and how
-  long the CFO says the business can afford it.
-- No fake anchors: no "was $X" price that was never charged.
+```bash
+python3 "$PACK_DIR/founder-cfo/unit_economics.py" "$FINANCE_RUN/numbers.json" --price "$CANDIDATE_PRICE"
+```
 
-## Output
+`FINANCE_RUN` is the local finance workspace; numeric candidates are labeled assumptions until decided. Missing costs mean no reliable margin claim.
 
-`founder/pricing-curve.md`, `founder/pricing.md`. If the price changed, update
-`founder/numbers.json` and re-run `/founder-cfo`. Next: `/founder-offer`.
+Return the recommendation or unresolved decision, included outcome/terms, evidence, cost floor reference, candidate fixed tiers only if useful, and one real purchase test in the requested format; use `pricing.md` only if a separate artifact is needed. Preserve local-only financial figures. No invented discounts, guarantees or scarcity; model their costs before recommending them. Do not update an agreed price or overwrite baseline financial inputs merely because a sensitivity run looks better.

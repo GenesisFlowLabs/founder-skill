@@ -3,3 +3,8 @@ __pycache__/
 *.pyc
 .venv/
 *.tmp
+/founder/
+/runs/
+/private/
+/.superpowers/
+/.worktrees/

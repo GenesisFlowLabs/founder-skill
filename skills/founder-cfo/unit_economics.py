@@ -21,7 +21,8 @@ The input (see example.json in this folder):
     fixed_monthly     [{label, cost}]  costs you pay every month whatever you sell:
                       rent, salaries, software, insurance
     startup           [{label, cost}]  one-off spend before you open
-    days_per_month    selling days in a month (default 30)
+                      All three cost arrays are required; [] confirms zero.
+    days_per_month    selling days in a month (default 30); use 1 for monthly units
     capacity_per_day  the most units a day you can physically sell (optional)
     plan_per_day      the volume you plan for once you are up and running
     ramp_per_day      12 numbers: units a day in each month of year 1
@@ -54,16 +55,42 @@ def _whole(v):
     return "%s$%s" % (sign, "{:,.0f}".format(abs(round(v))))
 
 
+def _number(value, field, positive=False):
+    """Accept JSON numbers only, with explicit range and finite checks."""
+    if isinstance(value, bool) or not isinstance(value, (int, float)):
+        raise NumbersError("%s must be a number, not %r" % (field, value))
+    try:
+        value = float(value)
+    except OverflowError:
+        raise NumbersError("%s must be finite" % field)
+    if not math.isfinite(value):
+        raise NumbersError("%s must be finite" % field)
+    if value < 0 or (positive and value == 0):
+        raise NumbersError("%s must be %s" % (field, "above zero" if positive else "nonnegative"))
+    return value
+
+
 def _sum(items, field):
+    if not isinstance(items, list):
+        raise NumbersError("%s must be an explicit array; use [] only for confirmed zero costs" % field)
     total = 0.0
-    for i, it in enumerate(items or []):
+    for i, it in enumerate(items):
         if not isinstance(it, dict) or "cost" not in it:
             raise NumbersError("%s[%d] needs a 'cost'" % (field, i))
-        try:
-            total += float(it["cost"])
-        except (TypeError, ValueError):
-            raise NumbersError("%s[%d].cost is not a number: %r" % (field, i, it["cost"]))
+        total += _number(it["cost"], "%s[%d].cost" % (field, i))
+    if not math.isfinite(total):
+        raise NumbersError("%s total must be finite" % field)
     return total
+
+
+def _finite(value, field):
+    if not math.isfinite(value):
+        raise NumbersError("%s exceeds the finite range of this projection; reduce the input scale" % field)
+    return value
+
+
+def _percent(value):
+    return "undefined (no planned sales)" if value is None else "%.0f%%" % (value * 100)
 
 
 def load(path):
@@ -78,56 +105,67 @@ def load(path):
 
 def analyse(spec, price=None, volume=1.0):
     """Return a dict of every number in the report. Pure function, easy to test."""
+    if not isinstance(spec, dict):
+        raise NumbersError("numbers.json must contain an object")
     if "price" not in spec and price is None:
         raise NumbersError("'price' is missing")
-    p = float(price if price is not None else spec["price"])
-    if p <= 0:
-        raise NumbersError("price must be above zero")
-    days = float(spec.get("days_per_month", 30))
-    var = _sum(spec.get("variable"), "variable")
-    fixed = _sum(spec.get("fixed_monthly"), "fixed_monthly")
-    startup = _sum(spec.get("startup"), "startup")
+    p = _number(price if price is not None else spec["price"], "price", positive=True)
+    days = _number(spec.get("days_per_month", 30), "days_per_month", positive=True)
+    volume = _number(volume, "volume")
+    for field in ("variable", "fixed_monthly", "startup"):
+        if field not in spec:
+            raise NumbersError("'%s' is missing; give an array, or [] for confirmed zero costs" % field)
+    var = _sum(spec["variable"], "variable")
+    fixed = _sum(spec["fixed_monthly"], "fixed_monthly")
+    startup = _sum(spec["startup"], "startup")
+    capacity = (_number(spec["capacity_per_day"], "capacity_per_day")
+                if "capacity_per_day" in spec else None)
 
     if "plan_per_day" not in spec and "ramp_per_day" not in spec:
         raise NumbersError("give 'plan_per_day' or 'ramp_per_day' (12 numbers)")
-    plan = float(spec.get("plan_per_day", 0)) * volume
-    ramp = spec.get("ramp_per_day")
-    if ramp is None:
+    plan = (_finite(_number(spec["plan_per_day"], "plan_per_day") * volume, "plan_per_day")
+            if "plan_per_day" in spec else None)
+    if "ramp_per_day" not in spec:
         ramp = [plan] * 12
     else:
-        if len(ramp) != 12:
-            raise NumbersError("'ramp_per_day' needs 12 numbers, one per month (got %d)" % len(ramp))
-        ramp = [float(v) * volume for v in ramp]
-    if not plan:
+        ramp = spec["ramp_per_day"]
+        if not isinstance(ramp, list) or len(ramp) != 12:
+            raise NumbersError("'ramp_per_day' needs an array of 12 numbers, one per month")
+        ramp = [_finite(_number(v, "ramp_per_day[%d]" % i) * volume, "ramp_per_day[%d]" % i)
+                for i, v in enumerate(ramp)]
+    if plan is None:
         plan = ramp[-1]
 
     contribution = p - var
-    contribution_pct = contribution / p
-    breakeven_day = math.inf if contribution <= 0 else fixed / (contribution * days)
-    plan_units_month = plan * days
-    margin_at_plan = (contribution - (fixed / plan_units_month if plan_units_month else math.inf)) / p
+    contribution_pct = _finite(contribution / p, "contribution percentage")
+    # Divide in stages to avoid an overflowing intermediate contribution * days.
+    breakeven_day = (math.inf if contribution <= 0 else
+                     _finite(fixed / contribution / days, "break-even"))
+    plan_units_month = _finite(plan * days, "planned monthly units")
+    margin_at_plan = (None if plan_units_month == 0 else
+                      _finite((contribution - fixed / plan_units_month) / p, "margin at plan"))
 
     months = []
     cumulative = -startup
     payback_month = None
     for m, per_day in enumerate(ramp, start=1):
-        units = per_day * days
-        revenue = units * p
-        variable_cost = units * var
-        profit = revenue - variable_cost - fixed
-        cumulative += profit
+        units = _finite(per_day * days, "month %d units" % m)
+        revenue = _finite(units * p, "month %d revenue" % m)
+        variable_cost = _finite(units * var, "month %d variable costs" % m)
+        profit = _finite(revenue - variable_cost - fixed, "month %d profit" % m)
+        cumulative = _finite(cumulative + profit, "month %d cumulative cash" % m)
         if payback_month is None and cumulative >= 0:
             payback_month = m
         months.append({"month": m, "per_day": per_day, "units": units, "revenue": revenue,
                        "variable": variable_cost, "fixed": fixed, "profit": profit,
                        "cumulative": cumulative})
-    year_profit = sum(m["profit"] for m in months)
-    year_revenue = sum(m["revenue"] for m in months)
+    year_profit = _finite(sum(m["profit"] for m in months), "year 1 profit")
+    year_revenue = _finite(sum(m["revenue"] for m in months), "year 1 revenue")
+    after_startup = _finite(year_profit - startup, "year 1 after startup")
     # the cash you need: startup plus the deepest hole the monthly losses dig
     lowest = min([-startup] + [m["cumulative"] for m in months])
     cash_needed = -lowest
 
-    capacity = spec.get("capacity_per_day")
     flags = []
     if contribution <= 0:
         flags.append("Each unit loses money before rent and salaries: the price is below the variable cost.")
@@ -135,6 +173,11 @@ def analyse(spec, price=None, volume=1.0):
         flags.append("Break-even needs %.0f %ss a day but capacity is %s." % (breakeven_day, spec.get("unit", "unit"), capacity))
     if capacity is not None and plan > float(capacity):
         flags.append("The plan (%.0f a day) is above capacity (%s)." % (plan, capacity))
+    if capacity is not None:
+        for month in months:
+            if month["per_day"] > capacity:
+                flags.append("Month %d volume (%.0f a day) is above capacity (%s)." %
+                             (month["month"], month["per_day"], capacity))
     if year_profit < 0:
         flags.append("Year 1 loses money on operations (%s)." % _whole(year_profit))
     if payback_month is None:
@@ -146,7 +189,7 @@ def analyse(spec, price=None, volume=1.0):
         "contribution_pct": contribution_pct, "fixed_monthly": fixed, "startup": startup,
         "plan_per_day": plan, "margin_at_plan": margin_at_plan, "breakeven_per_day": breakeven_day,
         "capacity_per_day": capacity, "year1_revenue": year_revenue, "year1_profit": year_profit,
-        "year1_after_startup": year_profit - startup, "payback_month": payback_month,
+        "year1_after_startup": after_startup, "payback_month": payback_month,
         "cash_needed": cash_needed, "months": months, "flags": flags,
         "variable_items": spec.get("variable", []), "fixed_items": spec.get("fixed_monthly", []),
         "startup_items": spec.get("startup", []),
@@ -171,7 +214,7 @@ def report(spec, a):
     L = []
     L.append("# Unit economics: %s" % (a["business"] or "your business"))
     L.append("")
-    L.append("Every number below comes from the input file. Nothing is looked up or guessed.")
+    L.append("These are projections from the supplied assumptions and documented defaults, not proof of profitability or demand.")
     L.append("")
     L.append("## One %s" % u)
     L.append("")
@@ -186,13 +229,13 @@ def report(spec, a):
     L.append("## The margin that matters")
     L.append("")
     L.append("Fixed costs: %s a month (%s)." % (_whole(a["fixed_monthly"]), ", ".join(
-        "%s %s" % (it.get("label", "cost"), _whole(float(it["cost"]))) for it in a["fixed_items"]) or "none given"))
+        "%s %s" % (it.get("label", "cost"), _whole(float(it["cost"]))) for it in a["fixed_items"]) or "confirmed zero"))
     L.append("")
     be = a["breakeven_per_day"]
     L.append("- **Break-even: %s %ss a day.** Below that you lose money every month." % (
         "never (each unit loses money)" if math.isinf(be) else "{:,.0f}".format(math.ceil(be)), u))
-    L.append("- **Profit margin at your plan** (%s a day): **%.0f%%** of every sale, after every cost." % (
-        "{:,.0f}".format(a["plan_per_day"]), a["margin_at_plan"] * 100))
+    L.append("- **Profit margin at your plan** (%s a day): **%s** of every sale, after the supplied costs." % (
+        "{:,.0f}".format(a["plan_per_day"]), _percent(a["margin_at_plan"])))
     if a["capacity_per_day"] is not None:
         L.append("- Capacity: %s a day." % a["capacity_per_day"])
     L.append("")
@@ -215,7 +258,7 @@ def report(spec, a):
     L.append("| --- | ---: | ---: | ---: |")
     for name, s in sensitivity(spec):
         be = s["breakeven_per_day"]
-        L.append("| %s | %.0f%% | %s | %s |" % (name, s["margin_at_plan"] * 100,
+        L.append("| %s | %s | %s | %s |" % (name, _percent(s["margin_at_plan"]),
                                               "never" if math.isinf(be) else "{:,.0f}".format(math.ceil(be)),
                                               _whole(s["year1_profit"])))
     L.append("")
@@ -239,24 +282,19 @@ def main(argv=None):
     args = ap.parse_args(argv)
     try:
         spec = load(args.numbers)
-        if args.price is not None:
-            spec = dict(spec, price=args.price)
-        if args.volume != 1.0:
-            spec = dict(spec)
-            if "plan_per_day" in spec:
-                spec["plan_per_day"] = float(spec["plan_per_day"]) * args.volume
-            if "ramp_per_day" in spec:
-                spec["ramp_per_day"] = [float(v) * args.volume for v in spec["ramp_per_day"]]
-        a = analyse(spec)
+        a = analyse(spec, price=args.price, volume=args.volume)
+        # Sensitivity rows must start from the same effective scenario as the report.
+        spec = dict(spec, price=a["price"], plan_per_day=a["plan_per_day"],
+                    ramp_per_day=[month["per_day"] for month in a["months"]])
+        text = None if args.json else report(spec, a)
     except NumbersError as e:
         print("error: %s" % e, file=sys.stderr)
         return 2
     if args.json:
         out = {k: v for k, v in a.items() if not k.endswith("_items")}
         out["breakeven_per_day"] = None if math.isinf(out["breakeven_per_day"]) else out["breakeven_per_day"]
-        print(json.dumps(out, indent=1))
+        print(json.dumps(out, indent=1, allow_nan=False))
         return 0
-    text = report(spec, a)
     if args.out:
         with open(args.out, "w", encoding="utf-8") as fh:
             fh.write(text)

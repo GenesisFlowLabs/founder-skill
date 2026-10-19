@@ -1,18 +1,18 @@
 {
   "$schema": "https://anthropic.com/claude-code/marketplace.schema.json",
-  "name": "founder-skill",
-  "description": "The Founder skill pack for Claude",
+  "name": "gfl-founder",
+  "description": "Maintained founder skills from Genesis Flow Labs",
   "owner": {
-    "name": "Jake Schincariol",
-    "url": "https://opusjake.ai"
+    "name": "Genesis Flow Labs",
+    "url": "https://github.com/GenesisFlowLabs"
   },
   "plugins": [
     {
-      "name": "founder-skill",
-      "description": "Eleven Claude skills that test a business before you launch it: a board, a competitor scout, a consumer panel of 100 buyer agents, pricing, the offer, a CFO, marketing, brand, operations, a launch plan and the business plan.",
+      "name": "gfl-founder",
+      "description": "Evidence-led founder decisions for services and B2B software. One entry point, eleven specialist skills, bounded simulations, and explicit financial projections.",
       "source": "./",
       "category": "productivity",
-      "homepage": "https://github.com/Jakeschincariol/founder-skill"
+      "homepage": "https://github.com/GenesisFlowLabs/founder-skill"
     }
   ]
 }

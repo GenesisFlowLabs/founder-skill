@@ -1,70 +1,19 @@
 ---
 name: founder-ops
-description: >-
-  Your operations manager. Works out how the business actually runs on day one:
-  suppliers and what they cost, who works when, the step-by-step routines for
-  opening, serving or shipping and closing, the tools to run it, the licences and
-  permits to check, and a risk register with what to do when each thing goes
-  wrong. Feeds real costs back to the CFO. Use when the user says "how do I run
-  this", "operations", "suppliers", "staffing", "SOPs", "what do I need to open",
-  "permits", or "day one".
-argument-hint: "[city or country]"
+description: Use when defining delivery workflow, capacity, responsibilities, acceptance criteria or operational risks for a business or service.
+argument-hint: "[workflow or operating location]"
 ---
 
 # founder-ops
 
-A plan that works on paper fails at 7am on a Monday. This skill makes sure the
-first day, week and month can actually be run, and that the CFO's numbers include
-what running it really costs.
+Resolve this loaded skill directory with `pwd -P`, set `SKILL_DIR` and parent `PACK_DIR`, and read `"$PACK_DIR/founder/policy.md"` plus the relevant `profiles.md` section. Use authorized `RUN`; keep costs and payroll assumptions in the local finance workspace.
 
-## Step 1: what the business has to do every day
+1. Read current workflows, systems, service terms, owners and known constraints. Reconcile the existing tracker before recommending new tools or records.
+2. Describe the delivery cycle: intake, scope, customer prerequisites, implementation, verification, customer acceptance, support and renewal/handoff where relevant. For retail preserve inventory, fulfillment and opening/closing needs. Assign roles rather than inventing staff.
+3. Define capacity and dependency assumptions from actual records. For services include concurrent commitments, support demand, review bottlenecks and external approvals. Internal effort estimates are costs, never hourly client billing.
+4. Write short SOPs for the critical moments: intake/data routing, delivery, issue escalation, verification/rollback and acceptance. Specify owner, input, steps, observable completion and escalation condition. A local test, deployment and customer acceptance are separate states.
+5. Research only the supplier/tool gaps that matter. Prefer the existing stack; link current vendor prices or mark quote-only terms unknown. Send changed costs to the private CFO source record without silently overwriting a baseline.
+6. For applicable legal/insurance requirements, use current official sources for the actual jurisdiction and activity. Mark professional review needs and uncertainty; a checklist is not compliance certification.
+7. Maintain a short risk register with evidence/assumption, owner, trigger, mitigation and recovery. Include access/data ownership, supplier dependency and continuity where relevant.
 
-From `founder/idea.md`, `founder/offer.md` and `founder/numbers.json`, write the
-daily cycle as a list of steps from first thing to last (for a café: deliveries,
-prep, open, serve, clean, cash up, order; for an online store: orders in, pick,
-pack, ship, returns, support). Mark which steps a customer sees.
-
-## Step 2: suppliers
-
-For every input in the CFO's variable costs and every piece of equipment: two or
-three real suppliers the user can contact, their public prices or how to get a
-quote, minimum orders, lead times and payment terms. Link the sources. Where only
-a quote will tell, say so and add it to the open questions. If a real price
-differs from `founder/numbers.json`, update it and say the CFO should re-run.
-
-## Step 3: people
-
-Who does what, when: a weekly rota for the planned volume and for the slow first
-month. The roles, the hours, and the wage assumption (from the user, or a public
-source for the local minimum and typical pay, linked). Payroll costs beyond wages
-vary by country; flag them for the accountant.
-
-## Step 4: routines (SOPs)
-
-Short, numbered routines for the moments that make or break the business: opening,
-the core service or fulfilment, handling a complaint, closing, and a weekly
-reorder. Each fits on one page someone could follow on their first day.
-
-## Step 5: tools
-
-The smallest stack that runs it: payments, point of sale or store, scheduling,
-bookkeeping, inventory. Real products with their published prices, and why each.
-
-## Step 6: licences, permits and insurance
-
-A checklist of what businesses of this type usually need in the user's city or
-country (registration, tax numbers, health or food permits, signage permits,
-insurance), each with the official page to confirm it. Say plainly that rules
-differ by place and change, and the user must confirm each with the authority or a
-professional. Not legal advice.
-
-## Step 7: risk register
-
-The ten things most likely to go wrong (a supplier runs out, a key person is sick,
-the card terminal fails, a bad review, a slow month), each with how likely, how
-bad, and the plan.
-
-## Output
-
-`founder/ops.md`, plus updated `founder/numbers.json` if real costs changed. Next:
-`/founder-launch`.
+Return the operating analysis in the requested format and reference existing tracking; use `ops.md` only if a separate artifact is needed. End with the one dependency or ownership decision that most limits delivery. Do not provision services, hire, order supplies or move sensitive data merely because the operating plan mentions them.
